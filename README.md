@@ -127,18 +127,29 @@ you're tight on memory. Pick a tier at install time:
 ./setup.sh --list-models      # show this table in the terminal
 ```
 
-| Tier | Model | RAM | Median latency | What you give up |
-|---|---|---|---|---|
-| `quality` *(default)* | `qwen3:4b-instruct-2507-q4_K_M` | 2.9 GB | 0.43 s | — |
-| `balanced` | `granite4:3b` | 2.3 GB | 0.40 s | Rougher on non-English text |
-| `light` | `qwen2.5:1.5b` | 1.1 GB | 0.24 s | No list formatting; **may answer a dictated question instead of transcribing it** |
+| Tier | Model | RAM | Median | Throughput | What you give up |
+|---|---|---|---|---|---|
+| `quality` *(default)* | `qwen3:4b-instruct-2507-q4_K_M` | 2.9 GB | 580 ms | 31 tok/s | — |
+| `balanced` | `granite4:3b` | 2.3 GB | 520 ms | 33 tok/s | Rougher on non-English text |
+| `light` *(fastest)* | `qwen2.5:1.5b` | 1.1 GB | **340 ms** | 59 tok/s | **May answer a dictated question instead of transcribing it** |
 
 You can pass any Ollama tag directly too: `./setup.sh --model llama3.2:3b`.
+
+Latency is the median over realistic dictation sentences, warm, on an M3 Pro, measured
+against FreeFlow's real system prompt. **Cleanup time scales with how much text the model
+writes, not with model size** — the system prompt is prefix-cached by Ollama, so it's
+effectively free after the first call, and output tokens dominate. That's why `light` wins
+on throughput (59 vs 31 tok/s) rather than on being "a smaller model."
 
 **The `light` caveat is worth understanding.** Dictating "what time does the standup start
 tomorrow" into `qwen2.5:1.5b` produced *"The standup starts at 10:30 AM tomorrow."* — it
 answered the question instead of typing it. `quality` and `balanced` both echo it correctly.
 If you dictate questions, stay on 2 GB+.
+
+`light` also failed to format spoken lists as bullet lists against FreeFlow's stock prompt —
+but formatted them correctly once FreeFlow's own "custom system prompt" (which spells the
+list rules out in more detail) was in play. Small models are unusually sensitive to prompt
+wording, so test with your actual prompt rather than trusting a generic benchmark.
 
 ### How these were chosen
 

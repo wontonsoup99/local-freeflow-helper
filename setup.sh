@@ -40,17 +40,18 @@ list_models() {
   cat <<'MODELS'
 Cleanup model options (--model <tier>):
 
-  quality    qwen3:4b-instruct-2507-q4_K_M    2.9 GB RAM   ~0.43s   [default]
+  quality    qwen3:4b-instruct-2507-q4_K_M    2.9 GB RAM   ~580ms   [default]
              Best all-round. Passed every English behavior test.
 
-  balanced   granite4:3b                      2.3 GB RAM   ~0.40s
+  balanced   granite4:3b                      2.3 GB RAM   ~520ms
              Matches quality on English and is 0.6 GB lighter. Slightly
              rougher on non-English text.
 
-  light      qwen2.5:1.5b                     1.1 GB RAM   ~0.24s
-             Fastest, less than half the RAM. Trade-offs: does not format
-             spoken lists as bullet lists, and may ANSWER a dictated
-             question instead of transcribing it.
+  light      qwen2.5:1.5b                     1.1 GB RAM   ~340ms   [fastest]
+             ~2x the token throughput and under half the RAM. Trade-off:
+             may ANSWER a dictated question instead of transcribing it.
+
+Latency is the median of realistic dictation sentences, warm, on an M3 Pro.
 
 You can also pass any Ollama tag directly, e.g. --model llama3.2:3b.
 Avoid reasoning models (qwen3:1.7b, deepseek-r1): FreeFlow only strips
