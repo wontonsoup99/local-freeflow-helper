@@ -4,9 +4,23 @@ Runs [FreeFlow](https://github.com/zachlatta/freeflow) dictation with no cloud A
 recognition and text cleanup both happen on your Mac. One script sets everything up and
 registers it to start at login.
 
+## Install FreeFlow first
+
+This script configures an existing FreeFlow installation — it doesn't install the app itself.
+Download it from the [FreeFlow repo](https://github.com/zachlatta/freeflow)
+([latest release](https://github.com/zachlatta/freeflow/releases/latest)) and move
+**FreeFlow.app into `/Applications`** *before* running the script.
+
+If FreeFlow isn't there, the script still installs and starts both servers, but it skips the
+app configuration step and prints a warning — you'd then have to enter the URLs and model
+names by hand (see [Settings the script applies](#settings-the-script-applies)). Installing
+FreeFlow afterward and re-running the script picks it up and configures it automatically.
+
+## Setup
+
 ```bash
-git clone <this-repo> freeflow-local-setup
-cd freeflow-local-setup
+git clone git@github.com:wontonsoup99/local-freeflow-helper.git
+cd local-freeflow-helper
 ./setup.sh
 ```
 
@@ -16,7 +30,7 @@ Takes ~10 minutes the first time (about 3 GB of model downloads). Safe to re-run
 
 - Apple Silicon Mac (M1 or newer), macOS 15+
 - Native ARM Homebrew at `/opt/homebrew`
-- [FreeFlow.app](https://github.com/zachlatta/freeflow/releases/latest) in `/Applications`
+- [FreeFlow.app](https://github.com/zachlatta/freeflow) already in `/Applications` (see above)
 - ~4 GB of RAM free while dictating, ~4 GB of disk for models
 
 ## What you get
