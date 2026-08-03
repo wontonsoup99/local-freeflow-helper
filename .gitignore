@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+*.wav
+
+# Never commit FreeFlow's local config — it holds the API key.
+.settings
