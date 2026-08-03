@@ -3,23 +3,61 @@
 # Set up FreeFlow with a fully local speech + LLM stack on an Apple Silicon Mac.
 #
 #   ASR : speech-server (Parakeet TDT v3, CoreML/ANE)  -> http://127.0.0.1:<port>/v1
-#   LLM : Ollama (qwen3 4B instruct, q4_K_M)           -> http://127.0.0.1:11434/v1
+#   LLM : Ollama (cleanup model, see --list-models)    -> http://127.0.0.1:11434/v1
 #
 # Both are registered with launchd so they come back after a reboot, and both
 # models are preloaded at login so the first dictation of the day is instant.
 #
 # Usage:
 #   ./setup.sh                 # install + configure + verify
+#   ./setup.sh --model light   # use a smaller cleanup model (see --list-models)
 #   ./setup.sh --port 8200     # use a different ASR port
 #   ./setup.sh --yes           # don't prompt before quitting/relaunching FreeFlow
+#   ./setup.sh --list-models   # show cleanup model options and exit
 #   ./setup.sh --uninstall     # remove the launch agent + helper files
 #
 set -euo pipefail
 
 ASR_PORT=8123
 OLLAMA_PORT=11434
-LLM_MODEL="qwen3:4b-instruct-2507-q4_K_M"
 ASR_MODEL="parakeet"
+
+# Cleanup-model tiers. RAM and accuracy figures are measured, not estimated:
+# each model was scored on 15 cases built from FreeFlow's own system prompt
+# (filler removal, self-corrections, list formatting, identifier preservation,
+# and the "echo instructions, never execute them" rule). See the README.
+LLM_TIER="quality"
+tier_model() {
+  case "$1" in
+    quality)  echo "qwen3:4b-instruct-2507-q4_K_M" ;;
+    balanced) echo "granite4:3b" ;;
+    light)    echo "qwen2.5:1.5b" ;;
+    *)        echo "$1" ;;   # anything else: treat as a literal Ollama tag
+  esac
+}
+
+list_models() {
+  cat <<'MODELS'
+Cleanup model options (--model <tier>):
+
+  quality    qwen3:4b-instruct-2507-q4_K_M    2.9 GB RAM   ~0.43s   [default]
+             Best all-round. Passed every English behavior test.
+
+  balanced   granite4:3b                      2.3 GB RAM   ~0.40s
+             Matches quality on English and is 0.6 GB lighter. Slightly
+             rougher on non-English text.
+
+  light      qwen2.5:1.5b                     1.1 GB RAM   ~0.24s
+             Fastest, less than half the RAM. Trade-offs: does not format
+             spoken lists as bullet lists, and may ANSWER a dictated
+             question instead of transcribing it.
+
+You can also pass any Ollama tag directly, e.g. --model llama3.2:3b.
+Avoid reasoning models (qwen3:1.7b, deepseek-r1): FreeFlow only strips
+<think> tags for two hardcoded cloud model names, so their reasoning would
+be typed into your text field.
+MODELS
+}
 LABEL="audio.soniqo.speech-server"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LAUNCHER="$HOME/.local/bin/speech-server-launch.sh"
@@ -32,12 +70,17 @@ DO_UNINSTALL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --port) ASR_PORT="$2"; shift 2 ;;
+    --model) LLM_TIER="$2"; shift 2 ;;
+    --list-models) list_models; exit 0 ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     --uninstall) DO_UNINSTALL=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    # Print the header comment, however long it grows.
+    -h|--help) awk 'NR>1 && /^#/{sub(/^# ?/,""); print; next} NR>1{exit}' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
+
+LLM_MODEL="$(tier_model "$LLM_TIER")"
 
 say_step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 say_ok()   { printf '    \033[32m✓\033[0m %s\n' "$*"; }
@@ -131,7 +174,13 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
-say_step "Pulling the cleanup model ($LLM_MODEL, ~2.5 GB)"
+say_step "Pulling the cleanup model ($LLM_MODEL)"
+case "$LLM_MODEL" in
+  qwen3:0.6b|qwen3:1.7b|qwen3:4b|qwen3:8b|deepseek-r1*)
+    say_warn "$LLM_MODEL is a reasoning model — FreeFlow does not strip its <think>"
+    say_warn "tags, so they will be typed into your text. Use --list-models for options."
+    ;;
+esac
 if ollama list 2>/dev/null | grep -q "^${LLM_MODEL}[[:space:]]"; then
   say_ok "already present"
 else
@@ -319,6 +368,8 @@ Useful commands:
   launchctl kickstart -k gui/\$UID/$LABEL            # restart the ASR server
   launchctl kickstart -k gui/\$UID/homebrew.mxcl.ollama  # restart the LLM server
   tail -f /tmp/speech-server.log                      # watch ASR logs
+  ./setup.sh --list-models                            # cleanup model options
+  ./setup.sh --model light                            # switch to a smaller model
   ./setup.sh --uninstall                              # remove the launch agent
 
 Note: restart Ollama with launchctl, not 'brew services restart ollama' —
